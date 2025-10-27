@@ -1,0 +1,17 @@
+# Load dependencies - add modules here if you need them
+dependencies:
+  - python
+# Maths related
+  - numpy
+  - pandas
+  - scikit-learn
+  - matplotlib
+# Molecular modelling
+  - ase
+  - gpaw
+  - mace-torch
+  - torch-dftd
+
+# Necessary for online atom viewing
+  - nglview
+  - ipywidgets
