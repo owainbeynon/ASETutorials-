@@ -9,8 +9,6 @@ dependencies:
 # Molecular modelling
   - ase
   - gpaw
-  - mace-torch
-  - torch-dftd
 
 # Necessary for online atom viewing
   - nglview
