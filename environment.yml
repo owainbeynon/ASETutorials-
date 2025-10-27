@@ -1,8 +1,5 @@
 # Load dependencies - add modules here if you need them
 name: jupyter-env
-channels:
-  - conda-forge
-  - defaults
 dependencies:
   - python=3.11
   # Maths related
@@ -16,7 +13,7 @@ dependencies:
   # Necessary for online atom viewing
   - nglview
   - ipywidgets
-  # Pip packages
-  - pip
-  - pip:
-      - mace-torch
+#  # Pip packages
+#  - pip
+#  - pip:
+#      - mace-torch
