@@ -1,15 +1,22 @@
 # Load dependencies - add modules here if you need them
+name: jupyter-env
+channels:
+  - conda-forge
+  - defaults
 dependencies:
-  - python
-# Maths related
+  - python=3.11
+  # Maths related
   - numpy
   - pandas
   - scikit-learn
   - matplotlib
-# Molecular modelling
+  # Molecular modelling
   - ase
   - gpaw
-
-# Necessary for online atom viewing
+  # Necessary for online atom viewing
   - nglview
   - ipywidgets
+  # Pip packages
+  - pip
+  - pip:
+      - mace-torch

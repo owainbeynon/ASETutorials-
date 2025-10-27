@@ -1,5 +1,5 @@
-# %% [markdown]
-# # Exercise 1: Machine Learning Interatomic Potentials
+
+# # Exercise 3: Machine Learning Interatomic Potentials
 #
 # In this tutorial, we will:
 #
@@ -16,7 +16,7 @@
 # A negative value indicates favorable adsorption (exothermic).
 
 # %%=
-from ase.build import bulk, make_supercell, fcc111, molecule, add_adsorbate
+from ase.build import bulk, fcc111, molecule, add_adsorbate
 from mace.calculators import mace_mp
 from ase.constraints import StrainFilter
 from ase.optimize import BFGS
@@ -26,7 +26,6 @@ from ase.io import read
 from ase.md.langevin import Langevin
 from ase import units
 
-# %% [markdown]
 # ## Step 1: Optimize bulk Pd
 
 # %%
@@ -44,10 +43,10 @@ opt_bulk = BFGS(sf, trajectory='Pd_bulk_opt.traj', logfile='Pd_bulk_opt.log')
 opt_bulk.run(fmax=0.01)
 
 # Optimized lattice constant
-optimized_a = atoms.get_cell_lengths_and_angles()[0]
+optimized_a = atoms.get_cell_lengths_and_ax3des()[0]
 print(f"Optimized lattice constant a = {optimized_a:.3f} Å")
 
-view(atoms, viewer='ngl')
+view(atoms, viewer='x3d')
 
 # %% [markdown]
 # ## Step 2: Build Pd(111) slab
@@ -61,9 +60,8 @@ slab.calc = macemp
 E_slab = slab.get_potential_energy()
 print(f"Clean Pd(111) slab energy: {E_slab:.3f} eV")
 
-view(slab, viewer='ngl')
+view(slab, viewer='x3d')
 
-# %% [markdown]
 # ## Step 3: Optimize isolated H₂O molecule
 
 # %%
@@ -76,9 +74,8 @@ opt_h2o.run(fmax=0.01)
 E_h2o = h2o.get_potential_energy()
 print(f"Isolated H₂O energy: {E_h2o:.3f} eV")
 
-view(h2o, viewer='ngl')
+view(h2o, viewer='x3d')
 
-# %% [markdown]
 # ## Step 4: Add H₂O to Pd(111) surface and relax
 
 # %%
@@ -97,33 +94,31 @@ opt_ads.run(fmax=0.01)
 E_Pd_H2O = slab.get_potential_energy()
 print(f"Pd(111) + H₂O total energy: {E_Pd_H2O:.3f} eV")
 
-view(slab, viewer='ngl')
+view(slab, viewer='x3d')
 
-# %% [markdown]
 # ## Step 5: Calculate adsorption energy
 
 # %%
-E_adsorption = E_Pd_H2O - (E_slab + E_h2o)
-print(f"Adsorption energy of H₂O on Pd(111): {E_adsorption:.3f} eV")
+E_ads= E_Pd_H2O - (E_slab + E_h2o)
+print(f"Adsorption energy of H₂O on Pd(111): {E_ads:.3f} eV")
 
-# %% [markdown]
 # ## Step 6: Summary
-#
-# | Quantity           | Symbol       | Energy (eV) |
-# |-------------------|-------------|-------------|
-# | Clean slab        | E_slab      | `{E_slab:.3f}` |
-# | Isolated H₂O      | E_h2o       | `{E_h2o:.3f}` |
-# | Adsorbed system   | E_Pd_H2O    | `{E_Pd_H2O:.3f}` |
-# | **Adsorption energy** | **E_adsorption** | **`{E_adsorption:.3f}`** |
+# Print the table
+print(f"{'System':<20} | {'Symbol':<10} | {'Energy (eV)':<12}")
+print("-" * 50)
+print(f"{'Clean slab':<20} | {'E_slab':<10} | {E_slab:>12.3f}")
+print(f"{'Isolated H2O':<20} | {'E_h2o':<10} | {E_h2o:>12.3f}")
+print(f"{'Adsorbed system':<20} | {'E_ads':<10} | {E_Pd_H2O:>12.3f}")
+print(f"{'Adsorption energy':<20} | {'E_adsorption':<10} | {E_ads:>12.3f}")
+print("\nNegative adsorption energy → exothermic adsorption (favorable binding).")
 #
 # Negative adsorption energy → exothermic adsorption (favorable binding).
 
-# %% [markdown]
 # ## Step 7: Run MD simulation of H₂O on Pd(111)
 #
 # We'll perform a short molecular dynamics (MD) simulation at 300 K using a Langevin thermostat.
 
-# %%
+#
 ads_slab = slab.copy()
 ads_slab.calc = macemp
 
@@ -143,9 +138,8 @@ dyn = Langevin(
 dyn.run(1000)
 print("MD simulation complete!")
 
-# %% [markdown]
 # ## Step 8: Visualize MD trajectory
 
 # %%
 md_frames = read('Pd_H2O_md.traj', index=':')
-view(md_frames, viewer='ngl')
+view(md_frames, viewer='x3d')

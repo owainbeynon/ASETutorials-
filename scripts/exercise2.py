@@ -1,111 +1,100 @@
-# %% [markdown]
 # # Exercise 2: Electronic Simulations
 #
 # In this tutorial, we will:
-#
-# 1. Optimize bulk Pd using the EMT potential.
-# 2. Build a Pd(111) surface slab from the optimized bulk lattice.
+# 1. Optimize bulk Pd using the PBE XC Functional
+# 2. Build a Pd(111) surface slab from the optimized bulk lattice and add a water molecule
+# 3. Calculate adsorption energy (E_ads) and density of states (DOS)
 
-from ase.build import fcc111
+# Imports
+from ase.build import fcc111, bulk, add_adsorbate, molecule
 from ase.visualize import view
 from ase.optimize import BFGS
-from gpaw import GPAW, PW, restart
-from ase.build import bulk, add_adsorbate
 from ase.constraints import StrainFilter
+from gpaw import GPAW, PW
 import matplotlib.pyplot as plt
-from ase.build import molecule
+from ase.io import write
 
-# # %%
-# # Build bulk Pd (fcc)
-# element = 'Pd'
-# atoms = bulk(element, 'fcc', a=3.859)
-#
-#
-# calc = GPAW(mode=PW(300),
-#             kpts=(2, 2, 2),
-#             xc='PBE',    # exchange-correlation functional
-#             txt='pd_slab.out')  # output file
-#
-#
-# atoms.calc = calc
-#
-# # Optimize cell with strain filter
-# sf = StrainFilter(atoms)
-# opt_bulk = BFGS(sf, trajectory='Pd_bulk_opt.traj', logfile='Pd_bulk_opt.log')
-# opt_bulk.run(fmax=0.01)
-# calc.write('pd_slab.gpw')
-#
-# # Optimized lattice constant
-# optimized_a = atoms.get_cell_lengths_and_angles()[0] * (2 ** 0.5)
-# print(f"Optimized lattice constant a = {optimized_a:.3f} Å")
-#
-# view(atoms, viewer='ngl')
-#
-# calc = GPAW('pd_slab.gpw').fixed_density(
-#     nbands=16,
-#     symmetry='off',
-#     kpts={'path': 'GXWKL', 'npoints': 60},
-#     convergence={'bands': 8})
-#
-#
-# bs = calc.band_structure()
-# bs.plot(filename='bandstructure.png', show=True, emax=10.0)
+# Step 1: Build bulk Pd (fcc) and optimize lattice constant
+element = 'Pd'
+atoms = bulk(element, 'fcc', a=3.859)
 
-#  Slab with CO:
-slab = fcc111('Pd', size=(1, 1, 3))
+calc = GPAW(mode=PW(300),
+            kpts=(3, 2, 2),
+            xc='PBE',
+            txt='pd_bulk.txt')
 
+atoms.calc = calc
+
+sf = StrainFilter(atoms)
+opt_bulk = BFGS(sf, trajectory='Pd_bulk_opt.traj', logfile='Pd_bulk_opt.log')
+opt_bulk.run(fmax=0.01)
+calc.write('pd_bulk.gpw')
+
+optimized_a = atoms.get_cell_lengths_and_angles()[0] * (2 ** 0.5)
+print(f"Optimized lattice constant a = {optimized_a:.3f} Å")
+
+view(atoms, viewer='x3d')
+
+# Step 2: Build Pd(111) slab
+slab = fcc111('Pd', size=(3, 3, 2), vacuum=10.0, a=optimized_a)
+write('Pd.xyz', slab)
+
+calc = GPAW(mode=PW(300),
+            xc='PBE',
+            kpts=(2, 2, 1),
+            txt='water_slab.txt')
+
+slab.calc = calc
+E_slab = slab.get_potential_energy()
+print(f"Slab energy: {E_slab:.6f} eV")
+
+# Step 3: Calculate isolated H2O molecule energy
 h2o = molecule('H2O')
+h2o.center(vacuum=4.0)
+h2o.pbc = False
 
-
-x_center = slab.get_cell()[0,0] / 2
-y_center = slab.get_cell()[1,1] / 2
-
-add_adsorbate(slab, h2o, 1.5, position=(x_center, y_center))
-slab.center(axis=2, vacuum=4.0)
-slab.calc = GPAW(mode=PW(300),
-                 xc='PBE',
-                 kpts=(12, 12, 1),
-                 convergence={'bands': -10},
-                 txt='Pd_slab.txt')
-slab.get_potential_energy()
-slab.calc.write('Pd_slab.gpw', mode='all')
-
-#  Molecule
-h2o = slab[-2:]
 h2o.calc = GPAW(mode=PW(300),
-                     xc='PBE',
-                     kpts=(12, 12, 1),
-                     txt='H2O.txt')
+                xc='PBE',
+                kpts=(1, 1, 1),
+                txt='H2O.txt')
 
-molecule.get_potential_energy()
-molecule.calc.write('H2O.gpw', mode='all')
+E_h2o = h2o.get_potential_energy()
+h2o.calc.write('H2O.gpw', mode='all')
+print(f"H2O molecule energy: {E_h2o:.6f} eV")
 
+# Step 4: Add H2O to Pd(111) slab and optimize
+x_center = slab.get_cell()[0, 0] / 2
+y_center = slab.get_cell()[1, 1] / 2
 
-# Density of States
-plt.subplot(211)
-slab, calc = restart('pd_slab.gpw')
-e, dos = calc.get_dos(spin=0, npts=2001, width=0.2)
-e_f = calc.get_fermi_level()
-plt.plot(e - e_f, dos)
-plt.axis([-15, 10, None, 4])
-plt.ylabel('DOS')
+add_adsorbate(slab, h2o, height=1.5, position=(x_center, y_center))
+slab.center(axis=2, vacuum=10.0)
+write('Pd_h2o_initial.xyz', slab)
 
-molecule = range(len(slab))[-2:]
+calc = GPAW(mode=PW(300),
+            xc='PBE',
+            kpts=(2, 2, 1),
+            txt='Pd_H2O.txt')
 
-plt.subplot(212)
-c_mol = GPAW('H2O.gpw')
-for n in range(2, 7):
-    print('Band', n)
-    # PDOS on the band n
-    wf_k = [kpt.psit_nG[n] for kpt in c_mol.wfs.kpt_u]
-    P_aui = [[kpt.P_ani[a][n] for kpt in c_mol.wfs.kpt_u]
-             for a in range(len(molecule))]
-    e, dos = calc.get_all_electron_ldos(mol=molecule, spin=0, npts=2001,
-                                        width=0.2, wf_k=wf_k, P_aui=P_aui)
-    plt.plot(e - e_f, dos, label='Band: ' + str(n))
-plt.legend()
-plt.axis([-15, 10, None, None])
-plt.xlabel('Energy [eV]')
-plt.ylabel('All-Electron PDOS')
-plt.savefig('pdos.png')
-plt.show()
+slab.calc = calc
+
+opt = BFGS(slab, trajectory='Pd_H2O_opt.traj', logfile='Pd_H2O_opt.log')
+opt.run(fmax=0.01)
+
+E_Pd_H2O = slab.get_potential_energy()
+slab.calc.write('Pd_slab.gpw', mode='all')
+write('Pd_h2o_optimized.xyz', slab)
+
+print(f"Pd–H2O system energy: {E_Pd_H2O:.6f} eV")
+
+# Step 5: Compute adsorption energy
+E_ads = E_Pd_H2O - (E_slab + E_h2o)
+print(f"Adsorption energy of H₂O on Pd(111): {E_ads:.3f} eV")
+
+# Step 6: Summary table
+print(f"{'System':<20} | {'Symbol':<10} | {'Energy (eV)':<12}")
+print("-" * 50)
+print(f"{'Clean slab':<20} | {'E_slab':<10} | {E_slab:>12.3f}")
+print(f"{'Isolated H2O':<20} | {'E_h2o':<10} | {E_h2o:>12.3f}")
+print(f"{'Adsorbed system':<20} | {'E_Pd_H2O':<10} | {E_Pd_H2O:>12.3f}")
+print(f"{'Adsorption energy':<20} | {'E_ads':<10} | {E_ads:>12.3f}")
+print("\nNegative adsorption energy → exothermic adsorption (favorable binding).")
